@@ -46,6 +46,28 @@ export default async function plantRoutes(fastify, options) {
       orderBy: { createdAt: 'desc' },
     });
 
+    // 获取今天的起止时间
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+    // 批量查询所有植物今天的浇水次数
+    const plantIds = plants.map(p => p.id);
+    const todayLogs = await fastify.prisma.waterLog.findMany({
+      where: {
+        plantId: { in: plantIds },
+        userId,
+        wateredAt: { gte: todayStart, lte: todayEnd },
+      },
+      select: { plantId: true },
+    });
+
+    // 统计每株植物今天的浇水次数
+    const todayCountMap = {};
+    for (const log of todayLogs) {
+      todayCountMap[log.plantId] = (todayCountMap[log.plantId] || 0) + 1;
+    }
+
     const result = plants.map(p => ({
       id: p.id,
       name: p.name,
@@ -56,6 +78,7 @@ export default async function plantRoutes(fastify, options) {
       lastWatered: p.lastWatered,
       createdAt: p.createdAt,
       historyCount: p._count.waterLogs,
+      todayCount: todayCountMap[p.id] || 0,
     }));
 
     return reply.success(result);
