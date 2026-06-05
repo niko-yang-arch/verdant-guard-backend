@@ -143,11 +143,15 @@ export default async function plantRoutes(fastify, options) {
     const plant = await fastify.prisma.plant.update({
       where: { id: plantId },
       data: validated,
+      include: {
+        _count: { select: { waterLogs: true } },
+      },
     });
 
     const result = {
       ...plant,
       frequency: Number(plant.frequency),
+      historyCount: plant._count.waterLogs,
     };
 
     return reply.success(result);
