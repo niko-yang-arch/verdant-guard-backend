@@ -46,6 +46,36 @@ export default async function waterLogRoutes(fastify, options) {
       return reply.fail(404, 'Plant not found');
     }
 
+    // 获取今天的开始和结束时间（本地时区）
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+    // 获取今天该植物的所有浇水记录
+    const todayLogs = await fastify.prisma.waterLog.findMany({
+      where: {
+        plantId,
+        userId,
+        wateredAt: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+      },
+    });
+
+    // 根据 frequencyType 判断浇水频率限制
+    if (plant.frequencyType === 'TIMES_PER_DAY') {
+      // 每天浇水N次：检查今天浇水次数是否已达到上限
+      if (todayLogs.length >= plant.frequency) {
+        return reply.fail(400, `每天最多只能浇水 ${plant.frequency} 次，今天的浇水次数已用完~`);
+      }
+    } else {
+      // 每N天浇水一次：同一天只能浇一次
+      if (todayLogs.length > 0) {
+        return reply.fail(400, '今天已经浇过水了，请明天再来吧~');
+      }
+    }
+
     const [waterLog] = await fastify.prisma.$transaction([
       fastify.prisma.waterLog.create({
         data: { plantId, userId },
