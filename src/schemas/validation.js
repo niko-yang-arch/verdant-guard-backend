@@ -159,3 +159,19 @@ export const aiTipSchema = z.object({
 export const waterLogSchema = z.object({
   plantId: z.number().int().positive(),  // 植物 ID（必填，正整数）
 });
+
+// ========================================
+// 帮助与反馈相关 Schema
+// ========================================
+
+/**
+ * 意见反馈数据验证
+ *
+ * @description
+ * 用于“我的-帮助与反馈”页面提交用户反馈。
+ */
+export const feedbackSchema = z.object({
+  type: z.enum(['bug', 'suggestion', 'other']),     // 反馈类型
+  content: z.string().trim().min(1).max(1000),      // 反馈内容
+  contact: z.string().trim().max(100).optional(),   // 联系方式（可选）
+});
