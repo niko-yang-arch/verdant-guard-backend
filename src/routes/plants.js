@@ -100,6 +100,7 @@ export default async function plantRoutes(fastify, options) {
           orderBy: { wateredAt: 'desc' },
           take: 50,
         },
+        _count: { select: { waterLogs: true } },
       },
     });
 
@@ -107,9 +108,22 @@ export default async function plantRoutes(fastify, options) {
       return reply.fail(404, 'Plant not found');
     }
 
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const todayCount = await fastify.prisma.waterLog.count({
+      where: {
+        plantId,
+        userId,
+        wateredAt: { gte: todayStart, lte: todayEnd },
+      },
+    });
+
     const result = {
       ...plant,
       frequency: Number(plant.frequency),
+      historyCount: plant._count.waterLogs,
+      todayCount,
       history: plant.waterLogs.map(w => ({
         id: w.id,
         date: w.wateredAt,

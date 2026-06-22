@@ -142,8 +142,12 @@ export default async function waterLogRoutes(fastify, options) {
     });
 
     const byDay = {};
+    let totalWaterings = 0;
+    const plantIds = new Set();
     for (const log of logs) {
       const day = log.wateredAt.getDate();
+      totalWaterings += 1;
+      plantIds.add(log.plant.id);
       
       if (!byDay[day]) {
         byDay[day] = [];
@@ -167,6 +171,11 @@ export default async function waterLogRoutes(fastify, options) {
       year,
       month,
       data: byDay,
+      summary: {
+        totalWaterings,
+        totalPlants: plantIds.size,
+        activeDays: Object.keys(byDay).length,
+      },
     };
 
     return reply.success(result);
