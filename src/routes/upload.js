@@ -44,11 +44,12 @@ export default async function uploadRoutes(fastify, options) {
       return reply.fail(400, 'Unsupported file type');
     }
 
-    if (data.file.length > 5 * 1024 * 1024) {
+    const buffer = await data.toBuffer();
+
+    if (buffer.length > 5 * 1024 * 1024) {
       return reply.fail(400, 'File too large (max 5MB)');
     }
 
-    const buffer = await data.toBuffer();
     const url = await oss.uploadImage(buffer, data.filename, userId);
 
     const image = await prisma.image.create({
