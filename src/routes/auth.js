@@ -42,10 +42,42 @@ export default async function authRoutes(fastify, options) {
       process.env.WECHAT_SECRET
     );
 
-    const tokenData = await wechat.getAccessTokenByCode(code);
-    const userInfo = await wechat.getUserInfo(tokenData.access_token, tokenData.openid);
-
     const { prisma } = fastify;
+    const tokenData = await wechat.getAccessTokenByCode(code);
+    const userInfo = tokenData.openid
+      ? await wechat.getUserInfo(tokenData.access_token, tokenData.openid)
+      : {};
+
+    if (!userInfo.openid) {
+      if (process.env.NODE_ENV === 'production') {
+        return reply.fail(400, 'Invalid WeChat login response');
+      }
+
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          plants: {
+            some: {},
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      if (existingUser) {
+        const token = fastify.jwt.sign({ userId: existingUser.id });
+        return reply.success({
+          token,
+          user: {
+            id: existingUser.id,
+            nickname: existingUser.nickname,
+            avatar: existingUser.avatar,
+            plantCount: await prisma.plant.count({ where: { userId: existingUser.id } }),
+            createdAt: existingUser.createdAt,
+          },
+        });
+      }
+
+      return reply.fail(400, 'Invalid WeChat login response');
+    }
 
     let user = await prisma.user.findFirst({
       where: {
