@@ -200,7 +200,7 @@ describe('植物养护应用 API 测试', () => {
       expect(Array.isArray(data.data.faqs)).toBe(true);
       expect(data.data.faqs.length).toBeGreaterThan(0);
       expect(Array.isArray(data.data.feedbackTypes)).toBe(true);
-      expect(data.data.supportEmail).toBe('support@verdantguard.com');
+      expect(data.data.supportEmail).toBe('296831450@qq.com');
     });
 
     test('POST /api/help-feedback/submit - 未认证应返回401', async () => {
