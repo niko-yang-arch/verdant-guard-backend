@@ -43,12 +43,9 @@ export default async function authRoutes(fastify, options) {
     );
 
     const { prisma } = fastify;
-    const tokenData = await wechat.getAccessTokenByCode(code);
-    const userInfo = tokenData.openid
-      ? await wechat.getUserInfo(tokenData.access_token, tokenData.openid)
-      : {};
+    const sessionData = await wechat.getMiniProgramSessionByCode(code);
 
-    if (!userInfo.openid) {
+    if (!sessionData.openid) {
       if (process.env.NODE_ENV === 'production') {
         return reply.fail(400, 'Invalid WeChat login response');
       }
@@ -66,43 +63,38 @@ export default async function authRoutes(fastify, options) {
         const token = fastify.jwt.sign({ userId: existingUser.id });
         return reply.success({
           token,
-          user: {
-            id: existingUser.id,
-            nickname: existingUser.nickname,
-            avatar: existingUser.avatar,
-            plantCount: await prisma.plant.count({ where: { userId: existingUser.id } }),
-            createdAt: existingUser.createdAt,
-          },
+          user: await buildUserPayload(prisma, existingUser),
         });
       }
 
       return reply.fail(400, 'Invalid WeChat login response');
     }
 
+    const userMatcher = sessionData.unionid
+      ? [{ unionId: sessionData.unionid }, { openId: sessionData.openid }]
+      : [{ openId: sessionData.openid }];
+
     let user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { unionId: userInfo.unionid },
-          { openId: userInfo.openid },
-        ],
+        OR: userMatcher,
       },
     });
 
     if (!user) {
       user = await prisma.user.create({
         data: {
-          unionId: userInfo.unionid || null,
-          openId: userInfo.openid,
-          nickname: userInfo.nickname || null,
-          avatar: userInfo.headimgurl || null,
+          unionId: sessionData.unionid || null,
+          openId: sessionData.openid,
+          nickname: '植物爱好者',
+          avatar: null,
         },
       });
     } else {
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
-          nickname: userInfo.nickname || user.nickname,
-          avatar: userInfo.headimgurl || user.avatar,
+          unionId: sessionData.unionid || user.unionId,
+          openId: sessionData.openid,
         },
       });
     }
@@ -111,12 +103,7 @@ export default async function authRoutes(fastify, options) {
 
     const result = {
       token,
-      user: {
-        id: user.id,
-        nickname: user.nickname,
-        avatar: user.avatar,
-        plantCount: user.plants?.length ?? 0,
-      },
+      user: await buildUserPayload(prisma, user),
     };
 
     return reply.success(result);
@@ -152,4 +139,14 @@ export default async function authRoutes(fastify, options) {
 
     return reply.success(result);
   });
+}
+
+async function buildUserPayload(prisma, user) {
+  return {
+    id: user.id,
+    nickname: user.nickname,
+    avatar: user.avatar,
+    plantCount: await prisma.plant.count({ where: { userId: user.id } }),
+    createdAt: user.createdAt,
+  };
 }

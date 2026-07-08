@@ -3,8 +3,7 @@
  * 
  * 功能说明：
  * - 提供微信 API 的封装，简化调用流程
- * - 支持授权码换取 Access Token
- * - 获取用户基本信息
+ * - 支持小程序登录 code 换取 OpenID
  * - 获取用户手机号
  * 
  * 使用场景：
@@ -25,7 +24,7 @@ import axios from 'axios';
  * 
  * @example
  * const wechat = new WechatService('wx123456789', 'abcdef123456');
- * const tokenData = await wechat.getAccessTokenByCode('微信返回的授权码');
+ * const session = await wechat.getMiniProgramSessionByCode('wx.login 返回的 code');
  */
 export class WechatService {
   constructor(appid, secret) {
@@ -33,70 +32,34 @@ export class WechatService {
     this.secret = secret;
   }
 
-  // 微信 API 端点
-  // 换取 Access Token
-  static WECHAT_TOKEN_URL = 'https://api.weixin.qq.com/sns/oauth2/access_token';
-  // 获取用户信息
-  static WECHAT_USERINFO_URL = 'https://api.weixin.qq.com/sns/userinfo';
+  // 微信小程序 code2session
+  static WECHAT_CODE2SESSION_URL = 'https://api.weixin.qq.com/sns/jscode2session';
   // 获取手机号（已废弃，使用新接口）
   static WECHAT_PHONE_URL = 'https://api.weixin.qq.com/wxaplugin/getphone number';
 
   /**
-   * 通过授权码换取 Access Token 和 OpenID
+   * 通过小程序 wx.login code 换取 OpenID 和 session_key
    * 
    * @param {string} code - 微信小程序调用 wx.login() 获取的授权码
-   * @returns {Promise<Object>} 返回 token 数据
+   * @returns {Promise<Object>} 返回小程序会话数据
    * 
    * @description
    * 1. 将授权码发送到微信服务器
-   * 2. 换取 Access Token（用于后续 API 调用）
-   * 3. 获取 OpenID（用户在当前小程序的唯一标识）
+   * 2. 换取 OpenID（用户在当前小程序的唯一标识）
+   * 3. 换取 session_key（服务端按需保存或用于解密敏感信息）
    * 
    * @returns {Object} 包含以下字段：
-   * - access_token: 接口调用凭证
-   * - expires_in: 有效期（秒）
-   * - refresh_token: 刷新 token
    * - openid: 用户唯一标识
-   * - scope: 用户授权的作用域
+   * - session_key: 会话密钥
+   * - unionid: 用户在开放平台的唯一标识符（满足条件时返回）
    */
-  async getAccessTokenByCode(code) {
-    const { data } = await axios.get(WechatService.WECHAT_TOKEN_URL, {
+  async getMiniProgramSessionByCode(code) {
+    const { data } = await axios.get(WechatService.WECHAT_CODE2SESSION_URL, {
       params: {
         appid: this.appid,
         secret: this.secret,
-        code,
+        js_code: code,
         grant_type: 'authorization_code',
-      },
-    });
-    return data;
-  }
-
-  /**
-   * 获取用户基本信息
-   * 
-   * @param {string} accessToken - 接口调用凭证
-   * @param {string} openid - 用户唯一标识
-   * @returns {Promise<Object>} 返回用户信息
-   * 
-   * @description
-   * 通过 Access Token 和 OpenID 获取用户的基本信息
-   * 包括昵称、头像、UnionID 等
-   * 
-   * @returns {Object} 包含以下字段：
-   * - openid: 用户唯一标识
-   * - nickname: 微信昵称
-   * - sex: 性别（1:男，2:女，0:未知）
-   * - province: 省份
-   * - city: 城市
-   * - country: 国家
-   * - headimgurl: 头像 URL
-   * - unionid: 用户在开放平台的唯一标识符
-   */
-  async getUserInfo(accessToken, openid) {
-    const { data } = await axios.get(WechatService.WECHAT_USERINFO_URL, {
-      params: { 
-        access_token: accessToken,
-        openid 
       },
     });
     return data;
